@@ -1,0 +1,360 @@
+name                   = basm
+file_extensions []     = basm;
+
+################################################################
+## Constants
+################################################################
+
+__id \= [a-zA-Z\_][0-9a-zA-Z\.\_]*
+
+
+styles[] {
+   .asm_keyword    : style {
+       color = light_blue
+   }
+   
+   .identifier : style { 
+      color = cyan
+      textmate_scope = variable.other
+      pygments_scope = Name.Variable
+   }
+   .api_identifier : style {
+      color = cyan
+      textmate_scope = support.function
+      pygments_scope = Name.Other
+   }
+   
+   .fun_decl : style {
+      color = violet
+      textmate_scope = variable.other
+      pygments_scope = Name.Function
+   }
+   
+   .fun_call    : style {
+      color = violet
+   }
+   
+   .control_keywords : style {
+      color = light_blue
+      textmate_scope = keyword.control
+      pygments_scope = Keyword
+   }
+   
+   .type : style {
+     color = light_blue
+     textmate_scope = storage.type
+     pygments_scope = Keyword.Type
+   }
+   
+   .punctuation : style {
+      textmate_scope   = keyword.operator
+      pygments_scope   = Punctuation
+      color = light_grey
+   }
+   .quote_punctuation : style {
+      textmate_scope   = keyword.operator
+      pygments_scope   = Punctuation
+      color = orange
+   }
+   .quoted_text : style {
+       color = orange
+       textmate_scope = string.quoted.double
+       pygments_scope = String.Double
+   }
+   .escaped_text : style {
+   }
+   .comment    : style {
+       color = light_green
+       textmate_scope = comment.line
+       pygments_scope  = Comment
+   }
+   
+   .label : style {
+      color = yellow
+      textmate_scope = variable.other
+      pygments_scope = Name.Label
+   }
+   .namespace : style {
+      color = yellow
+      textmate_scope = variable.other
+      pygments_scope = Name.Namespace
+   }
+   
+   .numeric : style {
+      color = light_yellow
+      textmate_scope = constant.numeric
+      pygments_scope = Number
+   }
+   
+   .illegal : style {
+      color            = white
+      background_color = red
+      textmate_scope = invalid.illegal
+   }
+   
+   .todo : style {
+      color            = yellow
+      background_color = red   
+   }
+   .nothing : style {
+   }
+}
+
+
+contexts [] {
+   main : context {
+      :pattern {
+         regex          \= (//.*)
+         styles []       = .comment;
+      }
+
+      // keywords 
+      :pattern {
+         regex          \= (if|else|while|for)
+         styles[]       = .control_keywords;
+      }
+
+
+      // declarations
+      :include "declarations";
+
+      // namespace
+      :push {
+         regex \= (namespace)(\s)($${__id})(\s)(\{)
+         styles[] = .control_keywords, .nothing, .namespace, .nothing, .punctuation;
+         context []     = inside_blocks;
+      }
+
+      // strings
+      :push {
+         regex         \= (")
+         styles []      = .quote_punctuation;
+         context []     = inside_quotes;
+      }
+      
+      // blocks
+      :push {
+         regex       \= (\{)
+         styles []    = .punctuation;
+         context []   = inside_blocks;
+      }
+      :pattern {
+         regex   \= (\})
+         styles[] = .illegal;
+      }
+      
+      // function call
+      :push {
+         regex    \= ($${__id})(\()
+         styles[]  = .fun_call, .punctuation;
+         context[] = inside_lists;
+      }
+      
+      // list 
+      :push {
+         regex       \= (\()
+         styles []    = .punctuation;
+         context []   = inside_lists;
+      }
+      :pattern {
+         regex   \= (\))
+         styles[] = .illegal;
+      }
+      
+      // brackets
+      :push {
+         regex       \= (\[)
+         styles []    = .punctuation;
+         context []   = inside_brackets;
+      }
+      :pattern {
+         regex   \= (\])
+         styles[] = .illegal;
+      }
+      
+      // labels
+      :pattern {
+         regex    \= ($${__id})(\:)
+         styles[]  = .label, .punctuation;
+      }
+      
+      // directive keywords
+      :push {
+         regex          \= (db|dw|dl|dd|dq)
+         styles[]       = .asm_keyword;
+         context[]     = inside_directive;
+      }
+      
+      :include "values";
+   }
+   
+   
+   declarations : context {
+      :include "common_decl";
+   
+      // function declr 
+      :push {
+         regex    \= (fun|macro)(\s)($${__id})(\()
+         styles[]  = .type, .nothing, .fun_decl, .punctuation;
+         context[] = inside_lists;
+      } 
+   }
+   
+   common_decl : context {
+      // const
+      :pattern {
+         regex          \= (const|constant)(\s)($${__id})
+         styles[]       = .type, .nothing, .identifier;
+      }
+      
+      // const
+      :pattern {
+         regex          \= (var|variable)(\s)($${__id})
+         styles[]       = .type, .nothing, .identifier;
+      }
+   }
+   
+   
+   values : context {
+      default_style = .nothing
+   
+      // hex
+      :pattern {
+         regex          \= (\$[0-9a-f]+)
+         styles[]       = .numeric;
+      }
+      :pattern {
+         regex          \= (0x[0-9a-f]+)
+         styles[]       = .numeric;
+      }
+      
+      // bin 
+      :pattern {
+         regex          \= (\%[0-9a-f]+)
+         styles[]       = .numeric;
+      }
+      :pattern {
+         regex          \= (0b[0-9a-f]+)
+         styles[]       = .numeric;
+      }
+      
+      // octal
+      :pattern {
+         regex          \= (0o[0-7]+)
+         styles[]       = .numeric;
+      }
+      
+      // float
+      :pattern {
+         regex          \= (\b(\d)+\.(\d+)\b)
+         styles[]       = .numeric;
+      }
+      
+      // dec
+      :pattern {
+         regex          \= (\-?\b\d(\d|\')*\b)
+         styles[]       = .numeric;
+      }/**/   
+   }
+   
+   inside_quotes : context {
+      default_style = .quoted_text
+      
+      :pop {
+         regex      \= (")
+         styles []   = .quote_punctuation;
+      }
+      /*:pattern {
+         regex      \= (\\(?:\\|"))
+         styles [] = .escaped_text;
+      }
+      :pattern {
+         regex      \= ([^"\\]+)
+         styles [] = .quoted_text;
+      }/**/
+   }
+   
+   inside_blocks : context {
+      :pop {
+         regex    \= (\})
+         styles [] = .punctuation;
+      }
+      :pattern {
+         regex          \= (break|continue|return)
+         styles[]       = .control_keywords;
+      }      
+      :include "main";
+   }
+   
+   inside_lists : context {
+      :pop {
+         regex    \= (\))
+         styles [] = .punctuation;
+      }
+      :include "main";
+   }
+   
+   inside_brackets : context {
+      :pop {
+         regex    \= (\])
+         styles [] = .punctuation;
+      }
+      :include "main";
+   }
+   
+   inside_directive : context {
+      :eol_pop {}
+      
+      // strings
+      :push {
+         regex         \= (")
+         styles []      = .quote_punctuation;
+         context []     = inside_quotes;
+      }
+      
+      // evaluation
+      :push {
+         regex         \= (\{)
+         styles []      = .punctuation;
+         context []     = inside_evaluation;
+      }      
+      
+      // keywords
+      :pattern {
+         regex    \= ($${__id})
+         styles [] = .identifier;         
+      }
+      
+      // values 
+      :include "values";     
+      
+      // delimiter
+      :pattern {
+         regex    \= (\,)
+         styles [] = .punctuation;         
+      }
+   }
+   
+   inside_evaluation : context {
+      :pop {
+         regex    \= (\})
+         styles [] = .punctuation;
+      }
+      
+      // values
+      :include "values";
+
+      // calls
+      :push {
+         regex    \= ($${__id})(\()
+         styles[]  = .fun_call, .punctuation;
+         context[] = inside_lists;
+      }
+      
+      // keywords
+      :pattern {
+         regex    \= ($${__id})
+         styles [] = .identifier;         
+      }         
+   }
+}
